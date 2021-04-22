@@ -37,12 +37,12 @@ RootDeviceExtension *__fastcall TestFilterRootDeviceSignature(PDEVICE_OBJECT Dev
 NTSTATUS __fastcall NmAddGroupAccessAce(PDEVICE_OBJECT pDeviceObject);
 GroupAce *__fastcall GetAceFromAcl(PACL Dacl, unsigned int a2);
 char __fastcall AddAceToAcl(ACL *acl, GroupAce *GroupAce);
-void __fastcall pNmDot11StoreCurrentIfc(__int64 a1, int a2);
-void __fastcall pNmDot11StoreOpMode(__int64 a1, int a2);
-__int64 __fastcall pNmDot11QueryMonitorMode(__int64 a1);
+void __fastcall pNmDot11StoreCurrentIfc(Dot11Filter *Dot11, int a2);
+void __fastcall pNmDot11StoreOpMode(Dot11Filter *Dot11, int a2);
+__int64 __fastcall pNmDot11QueryMonitorMode(Dot11Filter *Dot11);
 __int64 __fastcall pNmDot11QueryCurrentIfc(FilterDeviceExtension *DeviceExtension);
-void __fastcall NmDeleteDot11Parameters(PVOID VirtualAddress);
-NTSTATUS __fastcall NmCreateDot11Filter(NDIS_HANDLE NdisHandle, PNDIS_FILTER_ATTACH_PARAMETERS AttachParameter, _QWORD *a3);
+void __fastcall NmDeleteDot11Parameters(Dot11Filter *Dot11);
+NTSTATUS __fastcall NmCreateDot11Filter(NDIS_HANDLE NdisHandle, PNDIS_FILTER_ATTACH_PARAMETERS AttachParameter, Dot11Filter **Dot11Filter);
 NTSTATUS __fastcall NmDot11SetPhyId(FilterDeviceExtension *DeviceExtension, unsigned int a2);
 __int64 __fastcall NmDot11SetChannel(FilterDeviceExtension *DeviceExtension, unsigned int channel_1);
 void __fastcall NetmonUnload(struct _DRIVER_OBJECT *DriverObject);
@@ -333,7 +333,7 @@ void __fastcall NetmonOidRequestComplete(FilterDeviceExtension *FilterModuleCont
 {
   PNDIS_OID_REQUEST OidRequest_2; // rdi
   __int32 RequestType; // ecx
-  __int64 v8; // rcx
+  Dot11Filter *Dot11; // rcx
 
   OidRequest_2 = *(PNDIS_OID_REQUEST *)&OidRequest[1].DATA.METHOD_INFORMATION.MethodId;
   if ( OidRequest_2 )
@@ -356,9 +356,9 @@ void __fastcall NetmonOidRequestComplete(FilterDeviceExtension *FilterModuleCont
     else
     {
       OidRequest_2->DATA.QUERY_INFORMATION.BytesNeeded = OidRequest->DATA.QUERY_INFORMATION.BytesNeeded;
-      v8 = FilterModuleContext->qword3B0;
-      if ( v8 && OidRequest->DATA.QUERY_INFORMATION.Oid == 0xD010308 && !Status && OidRequest->DATA.QUERY_INFORMATION.InformationBufferLength >= 8 )
-        pNmDot11StoreOpMode(v8, *((_DWORD *)OidRequest->DATA.QUERY_INFORMATION.InformationBuffer + 1));
+      Dot11 = FilterModuleContext->Dot11;
+      if ( Dot11 && OidRequest->DATA.QUERY_INFORMATION.Oid == 0xD010308 && !Status && OidRequest->DATA.QUERY_INFORMATION.InformationBufferLength >= 8 )
+        pNmDot11StoreOpMode(Dot11, *((_DWORD *)OidRequest->DATA.QUERY_INFORMATION.InformationBuffer + 1));
     }
     *(_QWORD *)&OidRequest[1].DATA.METHOD_INFORMATION.MethodId = 0i64;
     NdisFreeCloneOidRequest(FilterModuleContext->NdisFilterHandle, OidRequest);
@@ -1239,7 +1239,7 @@ NTSTATUS __fastcall NmDeleteCaptureFilter(PDEVICE_OBJECT DeviceObject, PIRP Irp)
   bool v8; // zf
   NTSTATUS NtStatus; // edi
   LIST_ENTRY *i; // rax
-  char *v11; // r8
+  CaptureFilter *v11; // r8
   _QWORD *v12; // rax
   __int64 v13; // rcx
   int v14; // edx
@@ -1269,18 +1269,18 @@ NTSTATUS __fastcall NmDeleteCaptureFilter(PDEVICE_OBJECT DeviceObject, PIRP Irp)
       NtStatus = STATUS_NOT_FOUND;
       for ( i = FsContext->list2.Flink; i != &FsContext->list2; i = i->Flink )
       {
-        v11 = (char *)&i[-1].Blink + 4;
+        v11 = (CaptureFilter *)((char *)&i[-1].Blink + 4);
         if ( (_DWORD)MasterIrp == LODWORD(i[1].Flink) )
         {
-          v12 = *(_QWORD **)(v11 + 12);
-          v13 = *(_QWORD *)(v11 + 4);
+          v12 = v11->pqwordC;
+          v13 = v11->qword4;
           v14 = 0;
           *v12 = v13;
           *(_QWORD *)(v13 + 8) = v12;
-          if ( *((_DWORD *)v11 + 8) )
+          if ( v11->unsigned_int20 )
           {
-            v15 = *((unsigned int *)v11 + 8);
-            v16 = (__int64 *)(v11 + 36);
+            v15 = v11->unsigned_int20;
+            v16 = &v11->int6424;
             do
             {
               v17 = *v16++;
@@ -1590,83 +1590,83 @@ char __fastcall AddAceToAcl(ACL *acl, GroupAce *GroupAce)
 }
 
 //----- (0000000000012AC4) ----------------------------------------------------
-void __fastcall pNmDot11StoreCurrentIfc(__int64 a1, int a2)
+void __fastcall pNmDot11StoreCurrentIfc(Dot11Filter *Dot11, int a2)
 {
-  unsigned int v2; // edi
-  __int64 v5; // rbp
-  KIRQL v6; // al
+  unsigned int i; // edi
+  __int64 *v5; // rbp
+  KIRQL NewIrql; // al
 
-  v2 = 0;
-  if ( a1 && *(_DWORD *)(a1 + 164) )
+  i = 0;
+  if ( Dot11 && Dot11->dwordA4 )
   {
-    v5 = a1 + 184;
+    v5 = &Dot11->qwordB8;
     do
     {
-      if ( *(_DWORD *)(*(_QWORD *)v5 + 20i64) == a2 )
+      if ( *(_DWORD *)(*v5 + 20) == a2 )
       {
-        v6 = KeAcquireSpinLockRaiseToDpc((PKSPIN_LOCK)(a1 + 128));
-        *(_BYTE *)(a1 + 136) = v6;
-        *(_QWORD *)(a1 + 176) = *(_QWORD *)v5;
-        KeReleaseSpinLock((PKSPIN_LOCK)(a1 + 128), v6);
+        NewIrql = KeAcquireSpinLockRaiseToDpc(&Dot11->SpinLock);
+        Dot11->Irql = NewIrql;
+        Dot11->field_B0 = *v5;
+        KeReleaseSpinLock(&Dot11->SpinLock, NewIrql);
       }
-      ++v2;
-      v5 += 8i64;
+      ++i;
+      ++v5;
     }
-    while ( v2 < *(_DWORD *)(a1 + 164) );
+    while ( i < Dot11->dwordA4 );
   }
 }
 
 //----- (0000000000012B60) ----------------------------------------------------
-void __fastcall pNmDot11StoreOpMode(__int64 a1, int a2)
+void __fastcall pNmDot11StoreOpMode(Dot11Filter *Dot11, int a2)
 {
-  KIRQL v4; // al
+  KIRQL Irql; // al
 
-  if ( a1 )
+  if ( Dot11 )
   {
-    v4 = KeAcquireSpinLockRaiseToDpc((PKSPIN_LOCK)(a1 + 128));
-    *(_DWORD *)(a1 + 168) = a2;
-    *(_BYTE *)(a1 + 136) = v4;
-    KeReleaseSpinLock((PKSPIN_LOCK)(a1 + 128), v4);
+    Irql = KeAcquireSpinLockRaiseToDpc(&Dot11->SpinLock);
+    Dot11->gapA8 = a2;
+    Dot11->Irql = Irql;
+    KeReleaseSpinLock(&Dot11->SpinLock, Irql);
   }
 }
 
 //----- (0000000000012BB4) ----------------------------------------------------
-__int64 __fastcall pNmDot11QueryMonitorMode(__int64 a1)
+__int64 __fastcall pNmDot11QueryMonitorMode(Dot11Filter *Dot11)
 {
-  unsigned int b; // edi
+  MACRO_BOOL b; // edi
   KIRQL NewIrql; // al
 
   b = FALSE;
-  if ( a1 )
+  if ( Dot11 )
   {
-    NewIrql = KeAcquireSpinLockRaiseToDpc((PKSPIN_LOCK)(a1 + 128));
-    if ( *(_DWORD *)(a1 + 168) == 0x80000000 )
-      b = 1;
-    *(_BYTE *)(a1 + 136) = NewIrql;
-    KeReleaseSpinLock((PKSPIN_LOCK)(a1 + 128), NewIrql);
+    NewIrql = KeAcquireSpinLockRaiseToDpc(&Dot11->SpinLock);
+    if ( Dot11->gapA8 == 0x80000000 )
+      b = TRUE;
+    Dot11->Irql = NewIrql;
+    KeReleaseSpinLock(&Dot11->SpinLock, NewIrql);
   }
-  return b;
+  return (unsigned int)b;
 }
 
 //----- (0000000000012C14) ----------------------------------------------------
 __int64 __fastcall pNmDot11QueryCurrentIfc(FilterDeviceExtension *DeviceExtension)
 {
-  __int64 v2; // rcx
-  __int64 v4; // rax
+  Dot11Filter *Dot11; // rcx
+  Dot11Filter *Dot11_1; // rax
   __int64 v5; // rdi
   unsigned int status; // eax
-  __int64 v7; // rax
+  Dot11Filter *Dot11_2; // rax
   __int64 v8; // [rsp+30h] [rbp-18h]
   __int64 a4; // [rsp+50h] [rbp+8h] BYREF
   unsigned int *v10; // [rsp+58h] [rbp+10h] BYREF
 
-  v2 = DeviceExtension->qword3B0;
-  if ( !v2 )
+  Dot11 = DeviceExtension->Dot11;
+  if ( !Dot11 )
     return 0i64;
-  *(_BYTE *)(DeviceExtension->qword3B0 + 136i64) = KeAcquireSpinLockRaiseToDpc((PKSPIN_LOCK)(v2 + 128));
-  v4 = DeviceExtension->qword3B0;
-  v5 = *(_QWORD *)(v4 + 176);
-  KeReleaseSpinLock((PKSPIN_LOCK)(v4 + 128), *(_BYTE *)(v4 + 136));
+  DeviceExtension->Dot11->Irql = KeAcquireSpinLockRaiseToDpc(&Dot11->SpinLock);
+  Dot11_1 = DeviceExtension->Dot11;
+  v5 = Dot11_1->field_B0;
+  KeReleaseSpinLock(&Dot11_1->SpinLock, Dot11_1->Irql);
   if ( !v5 )
   {
     LODWORD(v8) = 0;
@@ -1674,11 +1674,11 @@ __int64 __fastcall pNmDot11QueryCurrentIfc(FilterDeviceExtension *DeviceExtensio
     if ( status )
       DbgPrintEx(DPFLTR_IHVNETWORK_ID, DPFLTR_ERROR_LEVEL, "pNmDot11QueryCurrentIfc: status %x\n", status);
     else
-      pNmDot11StoreCurrentIfc(DeviceExtension->qword3B0, a4);
-    *(_BYTE *)(DeviceExtension->qword3B0 + 136i64) = KeAcquireSpinLockRaiseToDpc((PKSPIN_LOCK)(DeviceExtension->qword3B0 + 128i64));
-    v7 = DeviceExtension->qword3B0;
-    v5 = *(_QWORD *)(v7 + 176);
-    KeReleaseSpinLock((PKSPIN_LOCK)(v7 + 128), *(_BYTE *)(v7 + 136));
+      pNmDot11StoreCurrentIfc(DeviceExtension->Dot11, a4);
+    DeviceExtension->Dot11->Irql = KeAcquireSpinLockRaiseToDpc(&DeviceExtension->Dot11->SpinLock);
+    Dot11_2 = DeviceExtension->Dot11;
+    v5 = Dot11_2->field_B0;
+    KeReleaseSpinLock(&Dot11_2->SpinLock, Dot11_2->Irql);
     if ( !v5 )
       DbgPrintEx(DPFLTR_IHVNETWORK_ID, DPFLTR_ERROR_LEVEL, "pNmDot11QueryCurrentIfc: none\n");
   }
@@ -1687,52 +1687,52 @@ __int64 __fastcall pNmDot11QueryCurrentIfc(FilterDeviceExtension *DeviceExtensio
 // 12C9F: variable 'v8' is possibly undefined
 
 //----- (0000000000012D3C) ----------------------------------------------------
-void __fastcall NmDeleteDot11Parameters(PVOID VirtualAddress)
+void __fastcall NmDeleteDot11Parameters(Dot11Filter *Dot11)
 {
-  unsigned int v1; // edi
+  unsigned int i; // edi
   PVOID *v3; // rsi
 
-  v1 = 0;
-  if ( VirtualAddress )
+  i = 0;
+  if ( Dot11 )
   {
-    if ( *((_DWORD *)VirtualAddress + 41) )
+    if ( Dot11->dwordA4 )
     {
-      v3 = (PVOID *)((char *)VirtualAddress + 184);
+      v3 = (PVOID *)&Dot11->qwordB8;
       do
       {
         NdisFreeMemory(*v3, 0, 0);
-        ++v1;
+        ++i;
         ++v3;
       }
-      while ( v1 < *((_DWORD *)VirtualAddress + 41) );
+      while ( i < Dot11->dwordA4 );
     }
-    NdisFreeMemory(VirtualAddress, 0, 0);
+    NdisFreeMemory(Dot11, 0, 0);
   }
 }
 
 //----- (0000000000012DA4) ----------------------------------------------------
-NTSTATUS __fastcall NmCreateDot11Filter(NDIS_HANDLE NdisHandle, PNDIS_FILTER_ATTACH_PARAMETERS AttachParameter, _QWORD *a3)
+NTSTATUS __fastcall NmCreateDot11Filter(NDIS_HANDLE NdisHandle, PNDIS_FILTER_ATTACH_PARAMETERS AttachParameter, Dot11Filter **Dot11Filter)
 {
   NTSTATUS NtStatus; // eax
-  char *v4; // rsi
-  _QWORD *v5; // r12
+  Dot11Filter *Dot11Filter_3; // rsi
+  Dot11Filter **Dot11Filter_2; // r12
   FilterDeviceExtension *MiniportMediaSpecificAttributes; // rbx 这个肯定不是NDIS_HANDLE，而是个结构。
   unsigned int v7; // edi
   UINT Length; // edi
-  char *v9; // rax
+  Dot11Filter *p; // rax
   unsigned int v10; // er14
   int v11; // eax
   __int64 v12; // r13
   _QWORD *v13; // r15
   int v14; // ebp
   MACRO_OID_DOT11_TEMP oid; // edi
-  _DWORD *v16; // rax
-  _QWORD *v18; // [rsp+70h] [rbp+18h]
+  __int64 p_1; // rax
+  Dot11Filter **Dot11Filter_1; // [rsp+70h] [rbp+18h]
 
-  v18 = a3;
+  Dot11Filter_1 = Dot11Filter;
   NtStatus = 0;
-  v4 = 0i64;
-  v5 = a3;
+  Dot11Filter_3 = 0i64;
+  Dot11Filter_2 = Dot11Filter;
   if ( AttachParameter->MiniportMediaType != NdisMediumNative802_11 )
     goto LABEL_24;
   MiniportMediaSpecificAttributes = (FilterDeviceExtension *)AttachParameter->MiniportMediaSpecificAttributes;
@@ -1744,31 +1744,31 @@ NTSTATUS __fastcall NmCreateDot11Filter(NDIS_HANDLE NdisHandle, PNDIS_FILTER_ATT
     NtStatus = NDIS_STATUS_INVALID_PARAMETER;
     goto LABEL_26;
   }
-  v7 = 8 * HIDWORD(MiniportMediaSpecificAttributes->char10);
+  v7 = 8 * HIDWORD(MiniportMediaSpecificAttributes->list.Flink);
   if ( v7 < (unsigned __int64)(v7 + 8) + 184 )
   {
     Length = v7 + 192;
-    v9 = (char *)NdisAllocateMemoryWithTagPriority(NdisHandle, Length, 't3mN', LowPoolPriority);
-    v4 = v9;
-    if ( !v9 )
+    p = (Dot11Filter *)NdisAllocateMemoryWithTagPriority(NdisHandle, Length, 't3mN', LowPoolPriority);
+    Dot11Filter_3 = p;
+    if ( !p )
     {
       NtStatus = NDIS_STATUS_RESOURCES;
       goto LABEL_26;
     }
-    memset(v9, 0, Length);
+    memset(p, 0, Length);
     v10 = 0;
-    *((_DWORD *)v4 + 37) = MiniportMediaSpecificAttributes->gap4;
-    *((_QWORD *)v4 + 19) = MiniportMediaSpecificAttributes->tag;
-    v4[160] = MiniportMediaSpecificAttributes->char10;
-    v11 = HIDWORD(MiniportMediaSpecificAttributes->char10);
-    *((_DWORD *)v4 + 41) = v11;
+    Dot11Filter_3->dword94 = MiniportMediaSpecificAttributes->gap4;
+    Dot11Filter_3->qword98 = MiniportMediaSpecificAttributes->tag;
+    Dot11Filter_3->byteA0 = MiniportMediaSpecificAttributes->list.Flink;
+    v11 = HIDWORD(MiniportMediaSpecificAttributes->list.Flink);
+    Dot11Filter_3->dwordA4 = v11;
     if ( v11 )
     {
       v12 = 0i64;
-      v13 = v4 + 184;
+      v13 = &Dot11Filter_3->qwordB8;
       do
       {
-        v14 = *(_DWORD *)(v12 + MiniportMediaSpecificAttributes->qword18 + 4);
+        v14 = *(_DWORD *)((char *)&MiniportMediaSpecificAttributes->list.Blink->Flink + v12 + 4);
         if ( v14 == 4 )
         {
           oid = OID_DOT11_CURRENT_FREQUENCY;
@@ -1783,39 +1783,39 @@ NTSTATUS __fastcall NmCreateDot11Filter(NDIS_HANDLE NdisHandle, PNDIS_FILTER_ATT
           if ( v14 == 7 )
             oid = OID_DOT11_CURRENT_CHANNEL;
         }
-        v16 = NdisAllocateMemoryWithTagPriority(NdisHandle, 0x468u, 't3mN', LowPoolPriority);// 又是个结构？
-        if ( v16 )
+        p_1 = (__int64)NdisAllocateMemoryWithTagPriority(NdisHandle, 0x468u, 't3mN', LowPoolPriority);// 又是个结构？
+        if ( p_1 )
         {
-          *v13 = v16;
-          v16[5] = v10;
-          v16[6] = v14;
-          v16[280] = oid;
-          *((_WORD *)v16 + 8) = 1128;
-          memmove(v16 + 7, (const void *)(v12 + MiniportMediaSpecificAttributes->qword18), 0x444u);
+          *v13 = p_1;
+          *(_DWORD *)(p_1 + 20) = v10;
+          *(_DWORD *)(p_1 + 24) = v14;
+          *(_DWORD *)(p_1 + 1120) = oid;
+          *(_WORD *)(p_1 + 16) = 1128;
+          memmove((void *)(p_1 + 28), (char *)MiniportMediaSpecificAttributes->list.Blink + v12, 0x444u);
         }
         ++v10;
         ++v13;
         v12 += 1092i64;
       }
-      while ( v10 < *((_DWORD *)v4 + 41) );
-      v5 = v18;
+      while ( v10 < Dot11Filter_3->dwordA4 );
+      Dot11Filter_2 = Dot11Filter_1;
     }
     NtStatus = 0;
-    *((_QWORD *)v4 + 16) = 0i64;
+    Dot11Filter_3->SpinLock = 0i64;
 LABEL_24:
-    *v5 = v4;
+    *Dot11Filter_2 = Dot11Filter_3;
     return NtStatus;
   }
   NtStatus = NDIS_STATUS_BUFFER_OVERFLOW;
 LABEL_26:
-  *v5 = 0i64;
+  *Dot11Filter_2 = 0i64;
   return NtStatus;
 }
 
 //----- (0000000000012F84) ----------------------------------------------------
 NTSTATUS __fastcall NmDot11SetPhyId(FilterDeviceExtension *DeviceExtension, unsigned int a2)
 {
-  __int64 v4; // rbx
+  Dot11Filter *Dot11; // rbx
   unsigned int status_1; // eax
   unsigned int status; // eax
   NTSTATUS NtStatus; // edi
@@ -1829,10 +1829,10 @@ NTSTATUS __fastcall NmDot11SetPhyId(FilterDeviceExtension *DeviceExtension, unsi
   *(_OWORD *)a4 = 0ui64;
   if ( !DeviceExtension )
     return NDIS_STATUS_INVALID_PARAMETER;
-  v4 = DeviceExtension->qword3B0;
-  if ( !v4 )
+  Dot11 = DeviceExtension->Dot11;
+  if ( !Dot11 )
     return 0xC0235001;
-  if ( !(unsigned int)pNmDot11QueryMonitorMode(DeviceExtension->qword3B0) )
+  if ( !(unsigned int)pNmDot11QueryMonitorMode(DeviceExtension->Dot11) )
     return 0xC0235002;
   HIDWORD(a4[1]) = Information;
   LODWORD(v8) = 0;
@@ -1847,7 +1847,7 @@ NTSTATUS __fastcall NmDot11SetPhyId(FilterDeviceExtension *DeviceExtension, unsi
   if ( status )
     DbgPrintEx(DPFLTR_IHVNETWORK_ID, DPFLTR_ERROR_LEVEL, "NmSetDot11PhyType: Attempted set CURRENT_PHY_ID, status %x\n", status);
   else
-    pNmDot11StoreCurrentIfc(v4, Information);
+    pNmDot11StoreCurrentIfc(Dot11, Information);
   return NtStatus;
 }
 // 1303E: variable 'v8' is possibly undefined
@@ -1856,7 +1856,7 @@ NTSTATUS __fastcall NmDot11SetPhyId(FilterDeviceExtension *DeviceExtension, unsi
 //----- (00000000000130CC) ----------------------------------------------------
 __int64 __fastcall NmDot11SetChannel(FilterDeviceExtension *DeviceExtension, unsigned int channel_1)
 {
-  __int64 v3; // rcx
+  Dot11Filter *Dot11; // rcx
   __int64 NtStatus; // rax
   __int64 v5; // rdi
   NDIS_STATUS Status; // eax
@@ -1868,10 +1868,10 @@ __int64 __fastcall NmDot11SetChannel(FilterDeviceExtension *DeviceExtension, uns
   __int64 channel; // [rsp+58h] [rbp+10h] BYREF
 
   LODWORD(channel) = channel_1;
-  v3 = DeviceExtension->qword3B0;
-  if ( !v3 )
+  Dot11 = DeviceExtension->Dot11;
+  if ( !Dot11 )
     return 0xC0235001i64;
-  if ( !(unsigned int)pNmDot11QueryMonitorMode(v3) )
+  if ( !(unsigned int)pNmDot11QueryMonitorMode(Dot11) )
     return 0xC0235002i64;
   NtStatus = pNmDot11QueryCurrentIfc(DeviceExtension);
   v5 = NtStatus;
@@ -1975,7 +1975,7 @@ _BOOL8 __fastcall NmSetAppropriatePacketFilter(FilterDeviceExtension *DeviceExte
   KeReleaseSpinLock(&DeviceExtension->SpinLock, irql_1);
   if ( b )
   {
-    if ( DeviceExtension->qword3B0 )
+    if ( DeviceExtension->Dot11 )
     {
       if ( v6 > 0 )
         filter = 0x3FF002F;
@@ -2009,15 +2009,15 @@ LABEL_18:
 NTSTATUS __fastcall CopyUnicodeStringToBuffer(void *a1, unsigned __int64 a2, _DWORD *a3, const void **a4)
 {
   NTSTATUS NtStatus; // ebx
-  unsigned __int64 v7; // r8
+  unsigned __int64 size; // r8
 
   NtStatus = STATUS_SUCCESS;
   if ( !a1 )
     return NDIS_STATUS_INVALID_PARAMETER;
-  v7 = *(unsigned __int16 *)a4;
-  if ( v7 > a2 )
+  size = *(unsigned __int16 *)a4;
+  if ( size > a2 )
     return NDIS_STATUS_BUFFER_OVERFLOW;
-  memmove(a1, a4[1], v7);
+  memmove(a1, a4[1], size);
   *a3 = *(unsigned __int16 *)a4;
   return NtStatus;
 }
@@ -2043,7 +2043,7 @@ NTSTATUS __fastcall NmEnumNetworks(PIRP Irp, _IO_STACK_LOCATION *CurrentStackLoc
   bool b; // zf
   PVOID MappedSystemVa_2; // rax
   MACRO_NDIS_MEMORY NtStatus; // ebx
-  _DWORD *v25; // rax
+  _DWORD *p; // rax
   _DWORD *v26; // r14
   __int64 v27; // rax
   _DWORD *v28; // r13
@@ -2056,7 +2056,7 @@ NTSTATUS __fastcall NmEnumNetworks(PIRP Irp, _IO_STACK_LOCATION *CurrentStackLoc
   int v35; // eax
   const void **v36; // r9
   unsigned int v37; // ecx
-  NTSTATUS NtStatus_2; // eax
+  NTSTATUS status_1; // eax
   unsigned int v39; // ecx
   NTSTATUS NtStatus_1; // eax
   unsigned int v41; // ecx
@@ -2130,11 +2130,11 @@ NTSTATUS __fastcall NmEnumNetworks(PIRP Irp, _IO_STACK_LOCATION *CurrentStackLoc
   *Information = Length;
   if ( CurrentStackLocation->Parameters.DeviceIoControl.OutputBufferLength >= Length )
   {
-    v25 = ExAllocatePoolWithTag(NonPagedPool, Length, ' 3MN');
-    v26 = v25;
-    if ( !v25 )
+    p = ExAllocatePoolWithTag(NonPagedPool, Length, ' 3MN');
+    v26 = p;
+    if ( !p )
       return NDIS_STATUS_RESOURCES;
-    memset(v25, 0, Length);
+    memset(p, 0, Length);
     *v26 = 0;
     v27 = 104i64 * j;
     v28 = v26;
@@ -2186,14 +2186,14 @@ NTSTATUS __fastcall NmEnumNetworks(PIRP Irp, _IO_STACK_LOCATION *CurrentStackLoc
           a4 = 0;
           if ( v36 )
           {
-            NtStatus_2 = CopyUnicodeStringToBuffer(v31, v30, &a4, v36);
+            status_1 = CopyUnicodeStringToBuffer(v31, v30, &a4, v36);
             v37 = a4;
           }
           else
           {
-            NtStatus_2 = NDIS_STATUS_INVALID_PARAMETER;
+            status_1 = NDIS_STATUS_INVALID_PARAMETER;
           }
-          if ( !NtStatus_2 )
+          if ( !status_1 )
           {
             *(_DWORD *)(v34 + 19) = v37;
             v31 += v37;
@@ -2756,7 +2756,7 @@ NTSTATUS __fastcall NmCreateFilterModule(NDIS_HANDLE NdisFilterHandle, PNDIS_FIL
 {
   void *v3; // r12
   PNDIS_STRING BaseMiniportName; // rdx
-  void *v8; // r13
+  Dot11Filter *Dot11; // r13
   int NtStatus; // esi
   int i; // edi
   USHORT Length; // r11
@@ -2777,7 +2777,7 @@ NTSTATUS __fastcall NmCreateFilterModule(NDIS_HANDLE NdisFilterHandle, PNDIS_FIL
   __m128i v27; // [rsp+60h] [rbp-58h] BYREF
   UNICODE_STRING SymbolicLinkName; // [rsp+70h] [rbp-48h] BYREF
   PDEVICE_OBJECT pDeviceObject; // [rsp+C8h] [rbp+10h] BYREF
-  void *a3; // [rsp+D8h] [rbp+20h] BYREF
+  Dot11Filter *Dot11Filter; // [rsp+D8h] [rbp+20h] BYREF
 
   v3 = 0i64;
   BaseMiniportName = AttachParameters->BaseMiniportName;
@@ -2789,8 +2789,8 @@ NTSTATUS __fastcall NmCreateFilterModule(NDIS_HANDLE NdisFilterHandle, PNDIS_FIL
   SymbolicLinkName.Buffer = 0i64;
   v27.i32[0] = 0;
   v27.i64[1] = 0i64;
-  v8 = 0i64;
-  a3 = 0i64;
+  Dot11 = 0i64;
+  Dot11Filter = 0i64;
   NtStatus = 0;
   if ( BaseMiniportName )
   {
@@ -2848,9 +2848,9 @@ LABEL_28:
   if ( AttachParameters->MiniportMediaType == NdisMediumNative802_11
     && AttachParameters->FilterModuleGuidName->Buffer[(unsigned __int64)(AttachParameters->FilterModuleGuidName->Length - 1) >> 1] == 48 )
   {
-    NmCreateDot11Filter(NdisFilterHandle, AttachParameters, &a3);
-    v8 = a3;
-    if ( !a3 )
+    NmCreateDot11Filter(NdisFilterHandle, AttachParameters, &Dot11Filter);
+    Dot11 = Dot11Filter;
+    if ( !Dot11Filter )
     {
       NtStatus = NDIS_STATUS_RESOURCES;
       goto LABEL_28;
@@ -2912,8 +2912,8 @@ LABEL_28:
     NmAddGroupAccessAce(pDeviceObject);
     DeviceExtension->dword21C = 0;
     DeviceExtension->dword220 = 0;
-    DeviceExtension->qword18 = &DeviceExtension->char10;
-    DeviceExtension->char10 = (__int64)&DeviceExtension->char10;
+    DeviceExtension->list.Blink = &DeviceExtension->list;
+    DeviceExtension->list.Flink = &DeviceExtension->list;
     DeviceExtension->SpinLock = 0i64;
     DeviceExtension->field_2F0 = (__int64)&DeviceExtension->char2E8;
     DeviceExtension->char2E8 = (__int64)&DeviceExtension->char2E8;
@@ -2922,7 +2922,7 @@ LABEL_28:
     if ( AttachParameters->MiniportPhysicalMediaType == NdisPhysicalMediumNative802_11 )
     {
       HIDWORD(DeviceExtension->field_3A4) = 1;
-      DeviceExtension->qword3B0 = v8;
+      DeviceExtension->Dot11 = Dot11;
     }
     *DeferredContext = DeviceExtension;
   }
@@ -2933,8 +2933,8 @@ LABEL_28:
   if ( NtStatus < 0 )
   {
 LABEL_26:
-    if ( v8 )
-      NmDeleteDot11Parameters(v8);
+    if ( Dot11 )
+      NmDeleteDot11Parameters(Dot11);
     goto LABEL_28;
   }
   return NtStatus;
@@ -2953,8 +2953,8 @@ void __fastcall NmDestroyFilterModule(FilterDeviceExtension *DeviceExtension)
 
   DeviceObject = (_DEVICE_OBJECT *)DeviceExtension->DeviceObject;
   g_Irql = KeAcquireSpinLockRaiseToDpc(&g_FilterListLock);
-  v3 = DeviceExtension->char10;
-  v4 = (__int64 *)DeviceExtension->qword18;
+  v3 = DeviceExtension->list;
+  v4 = (__int64 *)DeviceExtension->?;
   *v4 = v3;
   *(_QWORD *)(v3 + 8) = v4;
   KeReleaseSpinLock(&g_FilterListLock, g_Irql);
@@ -2969,7 +2969,7 @@ void __fastcall NmDestroyFilterModule(FilterDeviceExtension *DeviceExtension)
   v7 = DeviceExtension->SymbolicLink.Buffer;
   if ( v7 )
     NdisFreeMemory(v7, 0, 0);
-  v8 = (void *)DeviceExtension->qword3B0;
+  v8 = (void *)DeviceExtension->Dot11;
   if ( v8 )
     NmDeleteDot11Parameters(v8);
   memset(DeviceExtension, 0, 0x3B8u);
@@ -3121,20 +3121,20 @@ void __fastcall StackModuleInstance(FilterDeviceExtension *FilterModuleContext, 
     if ( FilterModuleContext->gap218 )
       NmInitializeTimerSystem(FilterModuleContext);
     v16.Flink = g_FilterModuleList.Flink;
-    FilterModuleContext->char10 = (__int64)g_FilterModuleList.Flink;
-    FilterModuleContext->qword18 = &g_FilterModuleList;
-    v16.Flink->Blink = (_LIST_ENTRY *)&FilterModuleContext->char10;
-    g_FilterModuleList.Flink = (_LIST_ENTRY *)&FilterModuleContext->char10;
+    FilterModuleContext->list.Flink = g_FilterModuleList.Flink;
+    FilterModuleContext->list.Blink = &g_FilterModuleList;
+    v16.Flink->Blink = &FilterModuleContext->list;
+    g_FilterModuleList.Flink = &FilterModuleContext->list;
   }
   else if ( v6 )
   {
     BYTE2(FilterModuleContext->gap20C) = 0;
     g_Irql = KeAcquireSpinLockRaiseToDpc(&g_FilterListLock);
     v17.Flink = g_ByPassFilterModuleList.Flink;
-    FilterModuleContext->qword18 = &g_ByPassFilterModuleList;
-    FilterModuleContext->char10 = (__int64)v17.Flink;
-    v17.Flink->Blink = (_LIST_ENTRY *)&FilterModuleContext->char10;
-    g_ByPassFilterModuleList.Flink = (_LIST_ENTRY *)&FilterModuleContext->char10;
+    FilterModuleContext->list.Blink = &g_ByPassFilterModuleList;
+    FilterModuleContext->list.Flink = v17.Flink;
+    v17.Flink->Blink = &FilterModuleContext->list;
+    g_ByPassFilterModuleList.Flink = &FilterModuleContext->list;
   }
   else
   {
@@ -3156,10 +3156,10 @@ void __fastcall StackModuleInstance(FilterDeviceExtension *FilterModuleContext, 
     BYTE2(FilterModuleContext->gap20C) = 1;
     g_Irql = KeAcquireSpinLockRaiseToDpc(&g_FilterListLock);
     FilterModuleList_1 = g_FilterModuleList.Flink;
-    FilterModuleContext->qword18 = &g_FilterModuleList;
-    FilterModuleContext->char10 = (__int64)FilterModuleList_1;
-    FilterModuleList_1->Blink = (_LIST_ENTRY *)&FilterModuleContext->char10;
-    g_FilterModuleList.Flink = (_LIST_ENTRY *)&FilterModuleContext->char10;
+    FilterModuleContext->list.Blink = &g_FilterModuleList;
+    FilterModuleContext->list.Flink = FilterModuleList_1;
+    FilterModuleList_1->Blink = &FilterModuleContext->list;
+    g_FilterModuleList.Flink = &FilterModuleContext->list;
   }
   Irql_2 = g_Irql;
 LABEL_26:
@@ -3183,13 +3183,13 @@ NTSTATUS __fastcall NmFilterModuleIoControl(PDEVICE_OBJECT DeviceObject, PIRP Ir
   unsigned int v15; // er11
   unsigned int v16; // er11
   NTSTATUS status_2; // eax
-  __int64 v18; // r13
+  Dot11Filter *v18; // r13
   unsigned int status; // eax
   int Type; // eax
   __int64 v21; // rax
   unsigned int oid; // er13
   NDIS_STATUS v23; // eax
-  __int64 v24; // r13
+  Dot11Filter *Dot11; // r13
   unsigned int status_1; // eax
   int Type_1; // er11
   unsigned int v27; // er11
@@ -3304,7 +3304,7 @@ LABEL_53:
         }
         if ( OutputBufferLength != 4 || !MasterIrp )
           goto LABEL_62;
-        v18 = DeviceExtension->qword3B0;
+        v18 = DeviceExtension->Dot11;
         if ( !v18 )
         {
 LABEL_19:
@@ -3326,7 +3326,7 @@ LABEL_19:
       {
         if ( OutputBufferLength != 4 || !MasterIrp )
           goto LABEL_62;
-        if ( !DeviceExtension->qword3B0 )
+        if ( !DeviceExtension->Dot11 )
           goto LABEL_19;
         v21 = pNmDot11QueryCurrentIfc(DeviceExtension);
         if ( v21 )
@@ -3355,8 +3355,8 @@ LABEL_19:
     {
       if ( OutputBufferLength != 4 || !MasterIrp )
         goto LABEL_62;
-      v24 = DeviceExtension->qword3B0;
-      if ( !v24 )
+      Dot11 = DeviceExtension->Dot11;
+      if ( !Dot11 )
         goto LABEL_19;
       LODWORD(a7) = 0;
       status_1 = nmFilterDoInternalRequest(OID_DOT11_CURRENT_OPERATION_MODE, DeviceExtension, 0, (__int64 *)v37, 8u, 0, a7, (unsigned int *)&v36);
@@ -3368,7 +3368,7 @@ LABEL_19:
       }
       else
       {
-        pNmDot11StoreOpMode(v24, v37[1]);
+        pNmDot11StoreOpMode(Dot11, v37[1]);
         Type_1 = v37[1];
       }
       if ( Status )
@@ -3715,7 +3715,7 @@ BOOL __fastcall TestFilterModuleSignature(PDEVICE_OBJECT DeviceObject)
 
   DeviceExtension = (FilterDeviceExtension *)DeviceObject->DeviceExtension;
   result = FALSE;
-  if ( &DeviceExtension->char10 < (__int64 *)((char *)DeviceObject + DeviceObject->Size) && DeviceExtension->word2 == 952 && DeviceExtension->tag == 'MFMN' )
+  if ( &DeviceExtension->list < (__int64 *)((char *)DeviceObject + DeviceObject->Size) && DeviceExtension->word2 == 952 && DeviceExtension->tag == 'MFMN' )
     result = TRUE;
   return result;
 }
@@ -3835,7 +3835,7 @@ void __fastcall NetmonReceiveNetBufferLists(FilterDeviceExtension *FilterModuleC
       *(_QWORD *)a1 = TimeStamp;
       while ( 1 )
       {
-        v15 = FilterModuleContext->qword3B0;
+        v15 = FilterModuleContext->Dot11;
         v32 = 2;
         v33 = 32;
         v34 = 0;
@@ -3848,8 +3848,8 @@ void __fastcall NetmonReceiveNetBufferLists(FilterDeviceExtension *FilterModuleC
           v25 = 0i64;
           goto LABEL_21;
         }
-        *(_BYTE *)(FilterModuleContext->qword3B0 + 136i64) = KeAcquireSpinLockRaiseToDpc((PKSPIN_LOCK)(v15 + 128));
-        v16 = FilterModuleContext->qword3B0;
+        *(_BYTE *)(FilterModuleContext->Dot11 + 136i64) = KeAcquireSpinLockRaiseToDpc((PKSPIN_LOCK)(v15 + 128));
+        v16 = FilterModuleContext->Dot11;
         v17 = *(_DWORD *)(v16 + 168);
         SpinLock_2 = (KSPIN_LOCK *)(v16 + 128);
         LOBYTE(v16) = *(_BYTE *)(v16 + 136);
@@ -3858,7 +3858,7 @@ void __fastcall NetmonReceiveNetBufferLists(FilterDeviceExtension *FilterModuleC
         v19 = v13[12].Alignment;
         if ( !v19 )
           break;
-        v20 = FilterModuleContext->qword3B0;
+        v20 = FilterModuleContext->Dot11;
         v21 = *(_DWORD *)(v19 + 4);
         HIDWORD(v36) = *(_DWORD *)(v19 + 20);
         v22 = *(_BYTE *)(v19 + 24);
@@ -3969,7 +3969,7 @@ void __fastcall NetmonSendNetBufferLists(FilterDeviceExtension *FilterModuleCont
         *(_QWORD *)v25 = 0i64;
         *(_DWORD *)&v25[8] = 0;
         v25[12] = 0;
-        v13 = FilterModuleContext->qword3B0;
+        v13 = FilterModuleContext->Dot11;
         v23[0] = 2;
         strcpy(&v23[1], " ");
         if ( v13 )
@@ -5103,16 +5103,16 @@ void __fastcall NmInitializeMinipInfo(NDIS_MEDIUM MiniportMediaType, FilterDevic
           v10 = 0i64;
           if ( v4 )
           {
-            if ( !FilterModuleContext->qword3B0 )
+            if ( !FilterModuleContext->Dot11 )
               goto LABEL_42;
             if ( !nmOid_Query(OID_DOT11_OPERATION_MODE_CAPABILITY, FilterModuleContext, a3, 0x18u) )
             {
-              *(_DWORD *)(FilterModuleContext->qword3B0 + 148i64) = HIDWORD(v10);
+              FilterModuleContext->Dot11->dword94 = HIDWORD(v10);
               if ( _bittest((const signed __int32 *)&v10 + 1, 0x1Fu) )
-                *(_DWORD *)(FilterModuleContext->qword3B0 + 144i64) = 1;
+                FilterModuleContext->Dot11->field_90 = 1;
             }
             if ( !nmOid_Query(OID_DOT11_CURRENT_OPERATION_MODE, FilterModuleContext, &v11, 8u) )
-              pNmDot11StoreOpMode(FilterModuleContext->qword3B0, SHIDWORD(v11));
+              pNmDot11StoreOpMode(FilterModuleContext->Dot11, SHIDWORD(v11));
             nmOid_Query(OID_GEN_CURRENT_PACKET_FILTER, FilterModuleContext, &FilterModuleContext->filter, 4u);
           }
           if ( nmOid_Query(OID_802_3_PERMANENT_ADDRESS, FilterModuleContext, &FilterModuleContext->field_368, 0x20u) )

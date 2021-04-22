@@ -64,6 +64,7 @@ struct _NDIS_STATUS_INDICATION;
 struct _ACL;
 struct _NDIS_DRIVER_OPTIONAL_HANDLERS;
 struct _NDIS_CONFIGURATION_OBJECT;
+struct Dot11Filter;
 
 /* 1 */
 typedef _GUID GUID;
@@ -3465,8 +3466,7 @@ struct FilterDeviceExtension
   _WORD word2;
   int gap4;
   _QWORD tag;
-  __int64 char10;
-  _QWORD qword18;
+  _LIST_ENTRY list;
   NDIS_HANDLE NdisFilterHandle;
   _QWORD DeviceObject;
   _QWORD Create;
@@ -3562,7 +3562,7 @@ struct FilterDeviceExtension
   __unaligned __declspec(align(1)) __int64 field_39C;
   __unaligned __declspec(align(1)) __int64 field_3A4;
   int gap3AC;
-  _QWORD qword3B0;
+  Dot11Filter *Dot11;
   char char3B8;
   _BYTE gap3B9[1];
   _WORD word3BA;
@@ -3595,6 +3595,38 @@ struct FilterDeviceExtension
   __int64 field_458;
   __int64 field_460;
   __int64 field_468;
+};
+
+/* 490 */
+struct __declspec(align(8)) Dot11Filter
+{
+  __int64 gap0;
+  __int64 field_8;
+  __int64 field_10;
+  __int64 field_18;
+  __int64 field_20;
+  __int64 field_28;
+  __int64 field_30;
+  __int64 field_38;
+  __int64 field_40;
+  __int64 field_48;
+  __int64 field_50;
+  __int64 field_58;
+  __int64 field_60;
+  __int64 field_68;
+  __int64 field_70;
+  __int64 field_78;
+  KSPIN_LOCK SpinLock;
+  char Irql;
+  __declspec(align(8)) int field_90;
+  _DWORD dword94;
+  _QWORD qword98;
+  _BYTE byteA0;
+  _DWORD dwordA4;
+  int gapA8;
+  int field_AC;
+  __int64 field_B0;
+  _QWORD qwordB8;
 };
 
 /* 449 */
@@ -7550,5 +7582,16 @@ struct __declspec(align(64)) CaptureBuffer
   __int64 field_A8;
   __int64 charB0;
   _QWORD qwordB8;
+};
+
+/* 491 */
+struct __unaligned __declspec(align(4)) CaptureFilter
+{
+  char char0;
+  __declspec(align(4)) _QWORD qword4;
+  _QWORD *pqwordC;
+  _BYTE gap14[12];
+  unsigned int unsigned_int20;
+  __int64 int6424;
 };
 
