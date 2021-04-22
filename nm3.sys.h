@@ -3541,13 +3541,13 @@ struct FilterDeviceExtension
   __unaligned __declspec(align(1)) __int64 field_22C;
   __unaligned __declspec(align(1)) __int64 field_234;
   __unaligned __declspec(align(1)) __int64 field_23C;
-  __unaligned __declspec(align(1)) __int64 field_244;
-  __unaligned __declspec(align(1)) __int64 field_24C;
-  __unaligned __declspec(align(1)) __int64 field_254;
+  __int64 field_248;
+  __int64 field_250;
+  int field_258;
   int DueTime;
   KTIMER Timer;
   KDPC Dpc;
-  char field_2E0;
+  char InitializeTimerSystem;
   __int64 char2E8;
   __int64 field_2F0;
   struct _ERESOURCE eresource;
