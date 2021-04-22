@@ -336,14 +336,14 @@ struct __m128d
 /* 41 */
 union __declspec(align(16)) __m128i
 {
-  __int8 m128i_i8[16];
-  __int16 m128i_i16[8];
-  __int32 m128i_i32[4];
-  __int64 m128i_i64[2];
-  unsigned __int8 m128i_u8[16];
-  unsigned __int16 m128i_u16[8];
-  unsigned __int32 m128i_u32[4];
-  unsigned __int64 m128i_u64[2];
+  __int8 i8[16];
+  __int16 i16[8];
+  __int32 i32[4];
+  __int64 i64[2];
+  unsigned __int8 u8[16];
+  unsigned __int16 u16[8];
+  unsigned __int32 u32[4];
+  unsigned __int64 u64[2];
 };
 
 /* 42 */
@@ -3497,9 +3497,11 @@ struct FilterDeviceExtension
   __int64 field_F8;
   __int64 field_100;
   __int64 field_108;
-  __m128i m128i110;
-  __m128i m128i120;
-  __m128i m128i130;
+  __int64 m128i110;
+  __int64 field_118;
+  UNICODE_STRING SymbolicLink;
+  __int64 m128i130;
+  __int64 field_138;
   char AttachParameters;
   __unaligned __declspec(align(1)) __int64 gap141;
   __unaligned __declspec(align(1)) __int64 field_149;
@@ -3646,7 +3648,8 @@ struct __declspec(align(8)) FileContext
   FilterDeviceExtension *FilterDeviceExtension;
   PFILE_OBJECT FileObject;
   LIST_ENTRY list0;
-  __int64 gap68;
+  int gap68;
+  int field_6C;
   LIST_ENTRY list2;
   int gap80;
   PMDL MdlAddress;
@@ -7472,5 +7475,80 @@ enum MACRO_OID_DOT11_CURRENT_OPERATION
 {
   OID_DOT11_CURRENT_OPERATION_MODE = 218170120,
   OID_DOT11_CURRENT_PACKET_FILTER = 218170121,
+};
+
+/* 488 */
+struct __declspec(align(4)) struct_108
+{
+  _WORD word0;
+  _WORD word2;
+  int gap4;
+  _QWORD MdlAddress;
+  _QWORD Irp;
+  _DWORD dword18;
+  int gap1C;
+  _QWORD DeviceExtension;
+  _QWORD qword28;
+  __int64 gap30;
+  _QWORD SpinLock;
+  _QWORD FsContext;
+  _LIST_ENTRY list_entry48;
+  _DWORD dword58;
+  _DWORD dword5C;
+  _DWORD Length;
+  __unaligned __declspec(align(1)) __int64 gap64;
+  __unaligned __declspec(align(1)) __int64 field_6C;
+  int field_74;
+  _DWORD dword78;
+  __unaligned __declspec(align(1)) __int64 field_7C;
+  __unaligned __declspec(align(1)) __int64 field_84;
+  __unaligned __declspec(align(1)) __int64 field_8C;
+  __unaligned __declspec(align(1)) __int64 field_94;
+  __unaligned __declspec(align(1)) __int64 field_9C;
+  __unaligned __declspec(align(1)) __int64 field_A4;
+  __unaligned __declspec(align(1)) __int64 field_AC;
+  __unaligned __declspec(align(1)) __int64 field_B4;
+  __unaligned __declspec(align(1)) __int64 field_BC;
+  __unaligned __declspec(align(1)) __int64 field_C4;
+  __unaligned __declspec(align(1)) __int64 field_CC;
+  __unaligned __declspec(align(1)) __int64 field_D4;
+  __unaligned __declspec(align(1)) __int64 field_DC;
+  __unaligned __declspec(align(1)) __int64 field_E4;
+  __unaligned __declspec(align(1)) __int64 field_EC;
+  __unaligned __declspec(align(1)) __int64 field_F4;
+  __unaligned __declspec(align(1)) __int64 field_FC;
+  int field_104;
+};
+
+/* 489 */
+struct __declspec(align(64)) CaptureBuffer
+{
+  __int64 gap0;
+  PMDL mdl;
+  _IRP *irp;
+  int field_18;
+  int field_1C;
+  __int64 field_20;
+  KSPIN_LOCK SpinLock;
+  char Irql;
+  __int64 field_38;
+  FileContext *FsContext;
+  _QWORD qword48;
+  _QWORD qword50;
+  volatile signed __int32 volatile_signed___int3258;
+  int field_5C;
+  __int64 field_60;
+  __int64 field_68;
+  __int64 field_70;
+  int field_78;
+  int field_7C;
+  __int64 char80;
+  __int64 field_88;
+  __int64 field_90;
+  __int64 field_98;
+  __int64 field_A0;
+  __int64 field_A8;
+  __int64 charB0;
+  _QWORD qwordB8;
 };
 
