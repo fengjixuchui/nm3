@@ -2578,7 +2578,7 @@ union _NDIS_OID_REQUEST::_REQUEST_DATA
 };
 
 /* 403 */
-struct _NDIS_OID_REQUEST
+struct __declspec(align(8)) _NDIS_OID_REQUEST
 {
   NDIS_OBJECT_HEADER Header;
   NDIS_REQUEST_TYPE RequestType;
@@ -2587,12 +2587,20 @@ struct _NDIS_OID_REQUEST
   PVOID RequestId;
   NDIS_HANDLE RequestHandle;
   _NDIS_OID_REQUEST::_REQUEST_DATA DATA;
-  UCHAR NdisReserved[64];
-  UCHAR MiniportReserved[8];
-  UCHAR SourceReserved[8];
+  __int64 NdisReserved;
+  __int64 field_50;
+  __int64 field_58;
+  __int64 field_60;
+  __int64 field_68;
+  __int64 field_70;
+  __int64 field_78;
+  __int64 field_80;
+  __int64 MiniportReserved;
+  __int64 SourceReserved;
   UCHAR SupportedRevision;
   UCHAR Reserved1;
   USHORT Reserved2;
+  int field_9C;
 };
 
 /* 420 */
@@ -3526,9 +3534,8 @@ struct FilterDeviceExtension
   __int64 field_1E0;
   __int64 filter;
   __int64 field_1F0;
-  _QWORD SpinLock;
-  KIRQL irql;
-  int field_204;
+  KSPIN_LOCK SpinLock;
+  __int64 Irql;
   FILTER_STATE State;
   int gap20C;
   int field_210;
@@ -3548,8 +3555,7 @@ struct FilterDeviceExtension
   KTIMER Timer;
   KDPC Dpc;
   char InitializeTimerSystem;
-  __int64 char2E8;
-  __int64 field_2F0;
+  LIST_ENTRY list2;
   struct _ERESOURCE eresource;
   PNDIS_OID_REQUEST OidRequesta;
   __int64 field_368;
