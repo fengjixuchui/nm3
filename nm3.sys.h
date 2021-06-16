@@ -65,6 +65,7 @@ struct _ACL;
 struct _NDIS_DRIVER_OPTIONAL_HANDLERS;
 struct _NDIS_CONFIGURATION_OBJECT;
 struct Dot11Filter;
+struct struc468;
 
 /* 1 */
 typedef _GUID GUID;
@@ -3508,7 +3509,7 @@ struct FilterDeviceExtension
   __int64 m128i110;
   __int64 field_118;
   UNICODE_STRING SymbolicLink;
-  __int64 m128i130;
+  PVOID m128i130;
   __int64 field_138;
   char AttachParameters;
   char gap141;
@@ -3638,13 +3639,26 @@ struct __declspec(align(8)) Dot11Filter
   char Irql;
   __declspec(align(8)) int field_90;
   _DWORD dword94;
-  _QWORD qword98;
+  _QWORD tag;
   _BYTE byteA0;
   _DWORD dwordA4;
   int gapA8;
   int field_AC;
   __int64 field_B0;
-  _QWORD qwordB8;
+  struc468 *struc468;
+};
+
+/* 492 */
+struct struc468
+{
+  __int64 field_0;
+  __int64 field_8;
+  WORD size;
+  int field_14;
+  int field_18;
+  BYTE byte444[1092];
+  int oid;
+  int field_464;
 };
 
 /* 449 */
