@@ -65,6 +65,7 @@ struct _ACL;
 struct _NDIS_DRIVER_OPTIONAL_HANDLERS;
 struct _NDIS_CONFIGURATION_OBJECT;
 struct Dot11Filter;
+struct struc468;
 
 /* 1 */
 typedef _GUID GUID;
@@ -3508,19 +3509,21 @@ struct FilterDeviceExtension
   __int64 m128i110;
   __int64 field_118;
   UNICODE_STRING SymbolicLink;
-  __int64 m128i130;
+  PVOID m128i130;
   __int64 field_138;
   char AttachParameters;
-  __unaligned __declspec(align(1)) __int64 gap141;
-  __unaligned __declspec(align(1)) __int64 field_149;
-  __unaligned __declspec(align(1)) int field_151;
-  __int64 gap158;
-  _QWORD qword160;
+  char gap141;
+  __declspec(align(8)) int field_148;
+  int field_14C;
+  int field_150;
+  int field_154;
+  __declspec(align(16)) _QWORD qword160;
   _QWORD qword168;
   __int64 gap170;
   __int64 field_178;
   __int64 field_180;
-  __int64 field_188;
+  int field_188;
+  int field_18C;
   __int64 field_190;
   __int64 field_198;
   __int64 field_1A0;
@@ -3532,21 +3535,30 @@ struct FilterDeviceExtension
   __int64 field_1D0;
   __int64 field_1D8;
   __int64 field_1E0;
-  __int64 filter;
+  int filter;
+  int field_1EC;
   __int64 field_1F0;
   KSPIN_LOCK SpinLock;
-  __int64 Irql;
-  FILTER_STATE State;
-  int gap20C;
+  char Irql;
+  __declspec(align(8)) FILTER_STATE State;
+  BYTE gap20C;
+  char field_20D;
+  char field_20E;
+  char field_20F;
   int field_210;
   _DWORD dword214;
   int gap218;
   _DWORD dword21C;
   _DWORD dword220;
   char gap224;
-  _BYTE gap225[7];
-  __unaligned __declspec(align(1)) __int64 field_22C;
-  __unaligned __declspec(align(1)) __int64 field_234;
+  int field_228;
+  int field_22C;
+  int field_230;
+  int field_234;
+  BYTE field_238;
+  char field_239;
+  char field_23A;
+  char field_23B;
   __unaligned __declspec(align(1)) __int64 field_23C;
   __int64 field_248;
   __int64 field_250;
@@ -3566,7 +3578,8 @@ struct FilterDeviceExtension
   __int64 field_390;
   int field_398;
   __unaligned __declspec(align(1)) __int64 field_39C;
-  __unaligned __declspec(align(1)) __int64 field_3A4;
+  int field_3A4;
+  int field_3A8;
   int gap3AC;
   Dot11Filter *Dot11;
   char char3B8;
@@ -3583,7 +3596,7 @@ struct FilterDeviceExtension
   _BYTE gap3D9[1];
   _WORD word3DA;
   int gap3DC;
-  _QWORD qword3E0;
+  _QWORD BaseMiniportName;
   __int64 FilterModuleGuidName;
   __int64 field_3F0;
   __int64 field_3F8;
@@ -3626,13 +3639,26 @@ struct __declspec(align(8)) Dot11Filter
   char Irql;
   __declspec(align(8)) int field_90;
   _DWORD dword94;
-  _QWORD qword98;
+  _QWORD tag;
   _BYTE byteA0;
   _DWORD dwordA4;
   int gapA8;
   int field_AC;
   __int64 field_B0;
-  _QWORD qwordB8;
+  struc468 *struc468;
+};
+
+/* 492 */
+struct struc468
+{
+  __int64 field_0;
+  __int64 field_8;
+  WORD size;
+  int field_14;
+  int field_18;
+  BYTE byte444[1092];
+  int oid;
+  int field_464;
 };
 
 /* 449 */
@@ -3692,7 +3718,8 @@ struct __declspec(align(8)) FileContext
   int gap80;
   PMDL MdlAddress;
   int IrpCount;
-  __declspec(align(8)) SHARE_ACCESS ShareAccess;
+  int field_94;
+  SHARE_ACCESS ShareAccess;
   int field_B4;
   int field_B8;
   int field_BC;
@@ -7574,8 +7601,8 @@ struct __declspec(align(64)) CaptureBuffer
   _QWORD qword48;
   _QWORD qword50;
   volatile signed __int32 volatile_signed___int3258;
-  int field_5C;
-  __int64 field_60;
+  unsigned int Information;
+  _BYTE gap60[8];
   __int64 field_68;
   __int64 field_70;
   int field_78;
